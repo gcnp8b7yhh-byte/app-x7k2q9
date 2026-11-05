@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#10946e">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="収支">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="manifest" href="manifest.json">
+<title>収支カレンダー</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--tx:#1c2430;--sub:#6b7686;--line:#e5e8ee;--in:#0f8f69;--out:#d9433f;--acc:#10946e;--inbg:#e3f5ee;--outbg:#fdeaea}
+@media(prefers-color-scheme:dark){:root{--bg:#12151a;--card:#1c2128;--tx:#e8ecf2;--sub:#8b96a6;--line:#2c333d;--in:#34c79a;--out:#ff7b72;--acc:#34c79a;--inbg:#17332b;--outbg:#3a2022}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:-apple-system,"Hiragino Sans",sans-serif;padding-bottom:calc(100px + env(safe-area-inset-bottom))}
+header{position:sticky;top:0;background:var(--bg);padding:calc(10px + env(safe-area-inset-top)) 12px 8px;z-index:5;display:flex;align-items:center;justify-content:space-between}
+header h1{font-size:17px;margin:0}
+.mon{display:flex;align-items:center;gap:6px}
+.mon button,.ic{background:var(--card);border:1px solid var(--line);color:var(--tx);border-radius:10px;width:36px;height:36px;font-size:16px}
+.mon span{min-width:88px;text-align:center;font-weight:600}
+main{padding:0 12px;max-width:600px;margin:auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
+.bal{text-align:center}.bal small{color:var(--sub)}.bal b{display:block;font-size:34px;margin:2px 0 10px}
+.three{display:flex;gap:8px}.three div{flex:1;text-align:center;padding:8px 2px;border-radius:12px;background:var(--bg)}
+.three small{display:block;color:var(--sub);font-size:11px}.three b{font-size:15px}
+.in{color:var(--in)}.out{color:var(--out)}
+h2{font-size:13px;color:var(--sub);margin:0 0 10px;font-weight:600}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.cal .w{text-align:center;font-size:11px;color:var(--sub);padding-bottom:2px}
+.cal .w:first-child{color:var(--out)}.cal .w:nth-child(7){color:#3b82f6}
+.cell{aspect-ratio:1/1.15;border-radius:8px;border:1px solid transparent;background:var(--bg);padding:3px 2px;display:flex;flex-direction:column;align-items:center;font-size:11px;overflow:hidden;color:var(--tx)}
+.cell.blank{background:none}
+.cell .n{font-size:12px;font-weight:600}
+.cell .v{margin-top:auto;margin-bottom:auto;font-size:11px;font-weight:700;letter-spacing:-.3px}
+.cell.p{background:var(--inbg)}.cell.p .v{color:var(--in)}
+.cell.m{background:var(--outbg)}.cell.m .v{color:var(--out)}
+.cell.today .n{background:var(--acc);color:#fff;border-radius:9px;padding:0 6px}
+.cell.sel{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc)}
+.row{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border:0}
+.row .m{flex:1;min-width:0}.row .m div{font-size:15px;font-weight:600}.row .m small{color:var(--sub);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .a{font-weight:700;text-align:right}.row .a small{display:block;color:var(--sub);font-weight:400;font-size:11px}
+.row button{border:0;background:none;color:var(--sub);font-size:18px;padding:4px 8px}
+.empty{text-align:center;color:var(--sub);padding:14px 0;font-size:14px}
+.vr{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+.vr:last-child{border:0}.vr small{color:var(--sub);display:block;font-size:11px}.vr b{text-align:right}
+.fab{position:fixed;right:20px;bottom:calc(20px + env(safe-area-inset-bottom));width:60px;height:60px;border-radius:30px;border:0;background:var(--acc);color:#fff;font-size:32px;box-shadow:0 4px 14px rgba(0,0,0,.3);z-index:6}
+.sheet{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end;z-index:10}
+.sheet.on{display:flex}
+.panel{background:var(--card);width:100%;max-width:600px;margin:auto;border-radius:20px 20px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));max-height:92vh;overflow:auto}
+label{display:block;font-size:12px;color:var(--sub);margin:10px 0 4px}
+input,select{width:100%;padding:12px;font-size:16px;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--tx)}
+.two{display:flex;gap:8px}.two>div{flex:1}
+.num{font-size:22px;font-weight:700;text-align:right}
+.res{text-align:center;margin-top:12px;font-size:14px;color:var(--sub)}.res b{font-size:26px;display:block}
+.cats{display:flex;flex-wrap:wrap;gap:6px}.cats button{border:1px solid var(--line);background:var(--bg);color:var(--tx);padding:8px 12px;border-radius:18px;font-size:14px}
+.cats button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.vsel{display:flex;gap:8px}.vsel select{flex:1}.vsel button{border:1px solid var(--line);background:var(--bg);color:var(--tx);border-radius:12px;padding:0 14px;font-size:14px;white-space:nowrap}
+.save{width:100%;margin-top:16px;padding:14px;border:0;border-radius:14px;background:var(--acc);color:#fff;font-size:17px;font-weight:700}
+.link{background:none;border:0;color:var(--sub);width:100%;padding:12px;font-size:14px}
+.note{font-size:12px;color:var(--sub);margin-top:6px;line-height:1.5}
+.toast{position:fixed;left:50%;bottom:100px;transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:20px;font-size:14px;display:none;z-index:20}
+.chip{display:inline-flex;align-items:center;gap:4px;background:var(--bg);border:1px solid var(--line);border-radius:16px;padding:5px 6px 5px 12px;margin:3px;font-size:14px}
+.chip button{border:0;background:none;color:var(--sub);font-size:16px;padding:0 6px}
+.lock{position:fixed;inset:0;background:var(--bg);z-index:100;display:none;flex-direction:column;align-items:center;justify-content:center;padding:20px}
+.lock.on{display:flex}
+.lock h3{margin:0 0 6px;font-size:18px}.lock .msg{height:20px;color:var(--out);font-size:13px;margin-bottom:10px}
+.dots{display:flex;gap:16px;margin-bottom:18px}.dots i{width:14px;height:14px;border-radius:7px;border:2px solid var(--sub)}.dots i.f{background:var(--tx);border-color:var(--tx)}
+.pad{display:grid;grid-template-columns:repeat(3,74px);gap:14px}
+.pad button{width:74px;height:74px;border-radius:37px;border:1px solid var(--line);background:var(--card);color:var(--tx);font-size:26px}
+.pad button.x{visibility:hidden}
+.lock .link{width:auto;margin-top:14px}
+</style>
+</head>
+<body>
+<header>
+  <h1>収支カレンダー</h1>
+  <div class="mon"><button id="prev">‹</button><span id="mlabel"></span><button id="next">›</button><button class="ic" id="gear" style="margin-left:6px">⚙︎</button></div>
+</header>
+<main>
+  <div class="card bal">
+    <small>今月の収支</small><b id="bal">¥0</b>
+    <div class="three">
+      <div><small>投資</small><b id="sinv">¥0</b></div>
+      <div><small>回収</small><b id="sret">¥0</b></div>
+      <div><small>勝率</small><b id="swin">-</b></div>
+    </div>
+  </div>
+  <div class="card"><div class="cal" id="cal"></div></div>
+  <div class="card"><h2 id="dayTitle">明細</h2><div id="list"></div></div>
+  <div class="card"><h2>店舗別の収支</h2><div id="venues"></div></div>
+</main>
+<button class="fab" id="fab" aria-label="追加">＋</button>
+
+<div class="sheet" id="addS"><div class="panel">
+  <label>日付</label><input id="date" type="date">
+  <label>実践店舗</label>
+  <div class="vsel"><select id="venue"></select><button id="addV">＋ 新規</button></div>
+  <label>ジャンル</label><div class="cats" id="gameBtns"></div>
+  <div class="two">
+    <div><label>投資（使った額）</label><input id="inv" class="num" type="number" inputmode="numeric" placeholder="0"></div>
+    <div><label>回収（戻った額）</label><input id="ret" class="num" type="number" inputmode="numeric" placeholder="0"></div>
+  </div>
+  <div class="res">収支<b id="res">¥0</b></div>
+  <label>メモ（任意）</label><input id="memo" type="text" placeholder="例：台番号、機種など">
+  <button class="save" id="save">保存</button>
+  <button class="link" id="cancel">キャンセル</button>
+</div></div>
+
+<div class="sheet" id="setS"><div class="panel">
+  <h2>登録済みの店舗</h2>
+  <div id="vlist"></div>
+  <h2 style="margin-top:16px">スプレッドシート同期（任意）</h2>
+  <label>Apps Script ウェブアプリURL</label>
+  <input id="url" type="url" placeholder="https://script.google.com/macros/s/.../exec">
+  <div class="note">空欄ならこの端末だけに保存します。URLを入れると、追加・編集・削除のたびに新しいスプレッドシートへ自動送信し、「今すぐ同期」で相互に取り込みます。手順は Code.gs の先頭コメントを参照。</div>
+  <h2 style="margin-top:16px">パスコードロック</h2>
+  <div class="two"><div><button class="link" id="pinSet" style="border:1px solid var(--line);border-radius:12px"></button></div><div id="pinOffW"><button class="link" id="pinOff" style="border:1px solid var(--line);border-radius:12px">解除</button></div></div>
+  <div class="note">アプリを開く時と、別のアプリから戻った時に4桁の暗証番号を求めます。画面を見られないための鍵で、データの暗号化ではありません。忘れた場合は、ブラウザのサイトデータを消すしかなく、記録も消えます。CSV書き出しでバックアップを取っておいてください。</div>
+  <button class="save" id="sync">今すぐ同期</button>
+  <button class="link" id="exp">CSVで書き出し</button>
+  <button class="link" id="closeSet">閉じる</button>
+</div></div>
+<div class="lock" id="lock"><h3 id="lockT"></h3><div class="msg" id="lockM"></div><div class="dots" id="dots"></div><div class="pad" id="pad"></div><button class="link" id="lockC" style="display:none">キャンセル</button></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $=s=>document.querySelector(s);
+const GAMES=['パチンコ','スロット','競馬','競艇','競輪','オートレース','麻雀','その他'];
+const store={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
+let data=store.get('gb_data',[]),venues=store.get('gb_venues',[]),url=store.get('gb_url',''),lastV=store.get('gb_lastv','');
+let game='',editId=null,view=new Date();view.setDate(1);
+const pad=n=>String(n).padStart(2,'0');
+const ymd=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+let sel=ymd(new Date());
+const yen=n=>(n<0?'-':'')+'¥'+Math.abs(Math.round(n)).toLocaleString('ja-JP');
+const sgn=n=>(n>0?'+':'')+yen(n);
+const short=n=>{if(!n)return '±0';const a=Math.abs(n),s=n>0?'+':'-';return s+(a>=10000?(a/10000).toFixed(a>=100000?0:1).replace(/\.0$/,'')+'万':a.toLocaleString('ja-JP'))};
+const net=r=>r.ret-r.invest;
+const cls=n=>n>0?'in':n<0?'out':'';
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const persist=()=>{store.set('gb_data',data);store.set('gb_venues',venues)};
+function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',2200)}
+
+function render(){
+  const y=view.getFullYear(),m=view.getMonth(),ym=`${y}-${pad(m+1)}`;
+  $('#mlabel').textContent=`${y}年${m+1}月`;
+  const rows=data.filter(r=>r.date.startsWith(ym));
+  const inv=rows.reduce((s,r)=>s+r.invest,0),ret=rows.reduce((s,r)=>s+r.ret,0);
+  const b=$('#bal');b.textContent=sgn(ret-inv);b.className=cls(ret-inv);
+  $('#sinv').textContent=yen(inv);$('#sret').textContent=yen(ret);
+  const day={};rows.forEach(r=>{const d=day[r.date]??={n:0};d.n+=net(r)});
+  const dv=Object.values(day),wins=dv.filter(d=>d.n>0).length;
+  $('#swin').textContent=dv.length?`${Math.round(wins/dv.length*100)}%（${wins}/${dv.length}）`:'-';
+  // calendar
+  const first=new Date(y,m,1).getDay(),last=new Date(y,m+1,0).getDate(),td=ymd(new Date());
+  let h=['日','月','火','水','木','金','土'].map(w=>`<div class="w">${w}</div>`).join('');
+  for(let i=0;i<first;i++)h+='<div class="cell blank"></div>';
+  for(let d=1;d<=last;d++){
+    const k=`${ym}-${pad(d)}`,v=day[k];
+    h+=`<div class="cell ${v?(v.n>=0?'p':'m'):''} ${k===td?'today':''} ${k===sel?'sel':''}" data-d="${k}"><span class="n">${d}</span>${v?`<span class="v">${short(v.n)}</span>`:''}</div>`;
+  }
+  $('#cal').innerHTML=h;
+  // day list
+  const dr=data.filter(r=>r.date===sel);
+  const dn=dr.reduce((s,r)=>s+net(r),0);
+  $('#dayTitle').innerHTML=`${+sel.slice(5,7)}月${+sel.slice(8)}日の明細${dr.length?` <span class="${cls(dn)}" style="float:right;font-size:15px">${sgn(dn)}</span>`:''}`;
+  $('#list').innerHTML=dr.length?dr.map(r=>`<div class="row" data-edit="${r.id}"><div class="m"><div>${esc(r.venue||'店舗未設定')}</div><small>${esc([r.game,r.memo].filter(Boolean).join(' ／ '))}</small></div><div class="a ${cls(net(r))}">${sgn(net(r))}<small>投${r.invest.toLocaleString()} 回${r.ret.toLocaleString()}</small></div><button data-del="${r.id}" aria-label="削除">🗑</button></div>`).join(''):'<div class="empty">この日の記録はありません</div>';
+  // venues
+  const by={};data.forEach(r=>{const k=r.venue||'店舗未設定';const o=by[k]??={m:0,a:0,n:0};o.a+=net(r);o.n++;if(r.date.startsWith(ym))o.m+=net(r)});
+  const ent=Object.entries(by).sort((a,b)=>b[1].a-a[1].a);
+  $('#venues').innerHTML=ent.length?ent.map(([k,o])=>`<div class="vr"><div>${esc(k)}<small>通算 ${o.n}回</small></div><b class="${cls(o.m)}">${sgn(o.m)}<small>今月</small><small class="${cls(o.a)}" style="margin-top:2px">通算 ${sgn(o.a)}</small></b></div>`).join(''):'<div class="empty">データなし</div>';
+}
+
+function fillVenues(sv){
+  $('#venue').innerHTML='<option value="">（未選択）</option>'+venues.map(v=>`<option>${esc(v)}</option>`).join('');
+  $('#venue').value=sv&&venues.includes(sv)?sv:'';
+}
+function calc(){const n=(+$('#ret').value||0)-(+$('#inv').value||0);const e=$('#res');e.textContent=sgn(n);e.className=cls(n)}
+function setGame(g){game=g;$('#gameBtns').innerHTML=GAMES.map(x=>`<button data-g="${x}" class="${x===g?'on':''}">${x}</button>`).join('')}
+function openAdd(r){
+  editId=r?r.id:null;
+  $('#date').value=r?r.date:sel;
+  fillVenues(r?r.venue:lastV);setGame(r?r.game:'');
+  $('#inv').value=r?r.invest:'';$('#ret').value=r?r.ret:'';$('#memo').value=r?r.memo:'';
+  calc();$('#addS').classList.add('on');
+}
+const close=id=>$(id).classList.remove('on');
+async function post(body){if(!url)return;try{await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify(body)})}catch{}}
+function addVenue(){
+  const n=(prompt('店舗名を入力')||'').trim();if(!n)return null;
+  if(!venues.includes(n)){venues.push(n);persist()}return n;
+}
+function renderSet(){
+  $('#vlist').innerHTML=venues.length?venues.map(v=>`<span class="chip">${esc(v)}<button data-rv="${esc(v)}">×</button></span>`).join(''):'<div class="empty">まだありません（記録の追加画面で登録できます）</div>';
+}
+
+$('#fab').onclick=()=>openAdd();$('#cancel').onclick=()=>close('#addS');
+$('#inv').oninput=calc;$('#ret').oninput=calc;
+$('#gameBtns').onclick=e=>{const g=e.target.dataset.g;if(g)setGame(g===game?'':g)};
+$('#addV').onclick=()=>{const n=addVenue();if(n)fillVenues(n)};
+$('#save').onclick=()=>{
+  const invest=Math.round(+$('#inv').value||0),ret=Math.round(+$('#ret').value||0);
+  if(!invest&&!ret)return toast('投資か回収を入力してください');
+  const date=$('#date').value||ymd(new Date()),venue=$('#venue').value;
+  const r={id:editId||Date.now().toString(36)+Math.random().toString(36).slice(2,5),date,venue,game,invest,ret,memo:$('#memo').value.trim()};
+  if(editId)data=data.map(x=>x.id===editId?r:x);else data.push(r);
+  lastV=venue;store.set('gb_lastv',lastV);persist();post({op:'upsert',rows:[r]});
+  sel=date;view=new Date(date+'T00:00:00');view.setDate(1);close('#addS');render();toast('保存しました');
+};
+$('#cal').onclick=e=>{const c=e.target.closest('[data-d]');if(!c)return;sel=c.dataset.d;render()};
+$('#list').onclick=e=>{
+  const id=e.target.dataset.del;
+  if(id){if(confirm('この記録を削除しますか？')){data=data.filter(r=>r.id!==id);persist();post({op:'delete',id});render()}return}
+  const row=e.target.closest('[data-edit]');if(row)openAdd(data.find(r=>r.id===row.dataset.edit));
+};
+$('#prev').onclick=()=>{view.setMonth(view.getMonth()-1);render()};
+$('#next').onclick=()=>{view.setMonth(view.getMonth()+1);render()};
+$('#gear').onclick=()=>{$('#url').value=url;renderSet();$('#setS').classList.add('on')};
+$('#vlist').onclick=e=>{const v=e.target.dataset.rv;if(!v)return;
+  if(confirm(`「${v}」を店舗リストから外しますか？\n（過去の記録はそのまま残ります）`)){venues=venues.filter(x=>x!==v);persist();renderSet()}};
+$('#closeSet').onclick=()=>{url=$('#url').value.trim();store.set('gb_url',url);close('#setS');render()};
+$('#sync').onclick=async()=>{
+  url=$('#url').value.trim();store.set('gb_url',url);
+  if(!url)return toast('URLを入力してください');
+  try{
+    const remote=await (await fetch(url)).json();
+    const have=new Set(data.map(r=>r.id)),rem=new Set(remote.map(r=>r.id));
+    const add=remote.filter(r=>!have.has(r.id));
+    add.forEach(r=>{data.push(r);if(r.venue&&!venues.includes(r.venue))venues.push(r.venue)});
+    const up=data.filter(r=>!rem.has(r.id));
+    if(up.length)await post({op:'upsert',rows:up});
+    persist();render();toast(`同期完了（取込${add.length}件／送信${up.length}件）`);
+  }catch{toast('同期に失敗しました。URLと公開設定を確認してください')}
+};
+$('#exp').onclick=()=>{
+  const q=s=>`"${String(s).replace(/"/g,'""')}"`;
+  const csv='﻿日付,店舗,ジャンル,投資,回収,収支,メモ\n'+[...data].sort((a,b)=>a.date.localeCompare(b.date)).map(r=>[r.date,q(r.venue||''),r.game,r.invest,r.ret,net(r),q(r.memo||'')].join(',')).join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='shushi.csv';a.click();
+};
+
+// ---- パスコードロック ----
+let pin=store.get('gb_pin',null),lockMode='unlock',buf='',tmp='',fails=0,until=0;
+async function hashPin(p,salt){const t=salt+':'+p;
+  if(window.crypto&&crypto.subtle){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
+  let h=5381;for(const c of t)h=(h*33^c.charCodeAt(0))>>>0;return 'f'+h}
+$('#pad').innerHTML=['1','2','3','4','5','6','7','8','9','','0','⌫'].map(k=>`<button data-k="${k}" class="${k===''?'x':''}">${k}</button>`).join('');
+function dots(){$('#dots').innerHTML=[0,1,2,3].map(i=>`<i class="${i<buf.length?'f':''}"></i>`).join('')}
+function showLock(mode,title){lockMode=mode;buf='';tmp='';$('#lockT').textContent=title;$('#lockM').textContent='';dots();$('#lockC').style.display=mode==='unlock'?'none':'block';$('#lock').classList.add('on')}
+function hideLock(){$('#lock').classList.remove('on');buf=''}
+$('#pad').onclick=async e=>{
+  const k=e.target.dataset.k;if(k===undefined||k==='')return;
+  if(k==='⌫')buf=buf.slice(0,-1);else if(buf.length<4)buf+=k;
+  dots();if(buf.length<4)return;
+  const entered=buf;
+  if(lockMode==='unlock'){
+    if(Date.now()<until){$('#lockM').textContent=`しばらくお待ちください（${Math.ceil((until-Date.now())/1000)}秒）`;buf='';dots();return}
+    if(await hashPin(entered,pin.s)===pin.h){fails=0;hideLock()}
+    else{fails++;if(fails>=5){until=Date.now()+30000;fails=0;$('#lockM').textContent='5回間違えました。30秒お待ちください'}else $('#lockM').textContent='パスコードが違います';buf='';dots()}
+  }else if(lockMode==='new'){tmp=entered;lockMode='confirm';buf='';$('#lockT').textContent='もう一度入力';$('#lockM').textContent='';dots()}
+  else{
+    if(entered===tmp){const s=Math.random().toString(36).slice(2);pin={s,h:await hashPin(entered,s)};store.set('gb_pin',pin);hideLock();refreshPin();toast('パスコードを設定しました')}
+    else{showLock('new','新しいパスコード（4桁）');$('#lockM').textContent='一致しませんでした。やり直してください'}
+  }
+};
+$('#lockC').onclick=hideLock;
+function refreshPin(){$('#pinSet').textContent=pin?'変更':'設定する';$('#pinOffW').style.display=pin?'':'none'}
+$('#pinSet').onclick=()=>showLock('new','新しいパスコード（4桁）');
+$('#pinOff').onclick=()=>{if(confirm('パスコードロックを解除しますか？')){pin=null;try{localStorage.removeItem('gb_pin')}catch{}refreshPin()}};
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&pin&&lockMode==='unlock')showLock('unlock','パスコードを入力')});
+refreshPin();
+if(pin)showLock('unlock','パスコードを入力');
+render();
+if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
