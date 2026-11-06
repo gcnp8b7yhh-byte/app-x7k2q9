@@ -72,6 +72,8 @@ input,select{width:100%;padding:12px;font-size:16px;border:1px solid var(--line)
 .pad button{width:74px;height:74px;border-radius:37px;border:1px solid var(--line);background:var(--card);color:var(--tx);font-size:26px}
 .pad button.x{visibility:hidden}
 .lock .link{width:auto;margin-top:14px}
+.msug{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+.msug button{text-align:left;border:1px solid var(--line);background:var(--bg);color:var(--tx);padding:10px 12px;border-radius:10px;font-size:14px}
 </style>
 </head>
 <body>
@@ -91,6 +93,7 @@ input,select{width:100%;padding:12px;font-size:16px;border:1px solid var(--line)
   <div class="card"><div class="cal" id="cal"></div></div>
   <div class="card"><h2 id="dayTitle">明細</h2><div id="list"></div></div>
   <div class="card"><h2>店舗別の収支</h2><div id="venues"></div></div>
+  <div class="card"><h2>機種別の収支（通算）</h2><div id="machs"></div></div>
 </main>
 <button class="fab" id="fab" aria-label="追加">＋</button>
 
@@ -99,6 +102,7 @@ input,select{width:100%;padding:12px;font-size:16px;border:1px solid var(--line)
   <label>実践店舗</label>
   <div class="vsel"><select id="venue"></select><button id="addV">＋ 新規</button></div>
   <label>ジャンル</label><div class="cats" id="gameBtns"></div>
+  <div id="machW"><label>機種（検索・手入力OK）</label><input id="machine" type="text" placeholder="例：獣王、エヴァ" autocomplete="off"><div class="msug" id="msug"></div></div>
   <div class="two">
     <div><label>投資（使った額）</label><input id="inv" class="num" type="number" inputmode="numeric" placeholder="0"></div>
     <div><label>回収（戻った額）</label><input id="ret" class="num" type="number" inputmode="numeric" placeholder="0"></div>
@@ -126,6 +130,7 @@ input,select{width:100%;padding:12px;font-size:16px;border:1px solid var(--line)
 <div class="lock" id="lock"><h3 id="lockT"></h3><div class="msg" id="lockM"></div><div class="dots" id="dots"></div><div class="pad" id="pad"></div><button class="link" id="lockC" style="display:none">キャンセル</button></div>
 <div class="toast" id="toast"></div>
 
+<script src="machines.js"></script>
 <script>
 const $=s=>document.querySelector(s);
 const GAMES=['パチンコ','スロット','競馬','競艇','競輪','オートレース','麻雀','その他'];
@@ -167,7 +172,10 @@ function render(){
   const dr=data.filter(r=>r.date===sel);
   const dn=dr.reduce((s,r)=>s+net(r),0);
   $('#dayTitle').innerHTML=`${+sel.slice(5,7)}月${+sel.slice(8)}日の明細${dr.length?` <span class="${cls(dn)}" style="float:right;font-size:15px">${sgn(dn)}</span>`:''}`;
-  $('#list').innerHTML=dr.length?dr.map(r=>`<div class="row" data-edit="${r.id}"><div class="m"><div>${esc(r.venue||'店舗未設定')}</div><small>${esc([r.game,r.memo].filter(Boolean).join(' ／ '))}</small></div><div class="a ${cls(net(r))}">${sgn(net(r))}<small>投${r.invest.toLocaleString()} 回${r.ret.toLocaleString()}</small></div><button data-del="${r.id}" aria-label="削除">🗑</button></div>`).join(''):'<div class="empty">この日の記録はありません</div>';
+  $('#list').innerHTML=dr.length?dr.map(r=>`<div class="row" data-edit="${r.id}"><div class="m"><div>${esc(r.venue||'店舗未設定')}</div><small>${esc([r.game,r.machine,r.memo].filter(Boolean).join(' ／ '))}</small></div><div class="a ${cls(net(r))}">${sgn(net(r))}<small>投${r.invest.toLocaleString()} 回${r.ret.toLocaleString()}</small></div><button data-del="${r.id}" aria-label="削除">🗑</button></div>`).join(''):'<div class="empty">この日の記録はありません</div>';
+  const bm={};data.forEach(r=>{if(!r.machine)return;const o=bm[r.machine]??={a:0,n:0};o.a+=net(r);o.n++});
+  const me=Object.entries(bm).sort((a,b)=>b[1].a-a[1].a);
+  $('#machs').innerHTML=me.length?me.map(([k,o])=>`<div class="vr"><div>${esc(k)}<small>${o.n}回</small></div><b class="${cls(o.a)}">${sgn(o.a)}</b></div>`).join(''):'<div class="empty">機種を入力した記録がここに集計されます</div>';
   // venues
   const by={};data.forEach(r=>{const k=r.venue||'店舗未設定';const o=by[k]??={m:0,a:0,n:0};o.a+=net(r);o.n++;if(r.date.startsWith(ym))o.m+=net(r)});
   const ent=Object.entries(by).sort((a,b)=>b[1].a-a[1].a);
@@ -179,12 +187,12 @@ function fillVenues(sv){
   $('#venue').value=sv&&venues.includes(sv)?sv:'';
 }
 function calc(){const n=(+$('#ret').value||0)-(+$('#inv').value||0);const e=$('#res');e.textContent=sgn(n);e.className=cls(n)}
-function setGame(g){game=g;$('#gameBtns').innerHTML=GAMES.map(x=>`<button data-g="${x}" class="${x===g?'on':''}">${x}</button>`).join('')}
+function setGame(g){game=g;machUI();$('#gameBtns').innerHTML=GAMES.map(x=>`<button data-g="${x}" class="${x===g?'on':''}">${x}</button>`).join('')}
 function openAdd(r){
   editId=r?r.id:null;
   $('#date').value=r?r.date:sel;
   fillVenues(r?r.venue:lastV);setGame(r?r.game:'');
-  $('#inv').value=r?r.invest:'';$('#ret').value=r?r.ret:'';$('#memo').value=r?r.memo:'';
+  $('#machine').value=r?(r.machine||''):'';$('#inv').value=r?r.invest:'';$('#ret').value=r?r.ret:'';$('#memo').value=r?r.memo:'';
   calc();$('#addS').classList.add('on');
 }
 const close=id=>$(id).classList.remove('on');
@@ -205,7 +213,10 @@ $('#save').onclick=()=>{
   const invest=Math.round(+$('#inv').value||0),ret=Math.round(+$('#ret').value||0);
   if(!invest&&!ret)return toast('投資か回収を入力してください');
   const date=$('#date').value||ymd(new Date()),venue=$('#venue').value;
-  const r={id:editId||Date.now().toString(36)+Math.random().toString(36).slice(2,5),date,venue,game,invest,ret,memo:$('#memo').value.trim()};
+  const machine=(!game||game==='パチンコ'||game==='スロット')?$('#machine').value.trim():'';
+  const kind=game==='パチンコ'?'pachinko':game==='スロット'?'slot':null;
+  if(machine&&kind&&![...(MA[kind]||[]),...(custom[kind]||[])].includes(machine)){custom[kind].push(machine);store.set('gb_machines',custom)}
+  const r={id:editId||Date.now().toString(36)+Math.random().toString(36).slice(2,5),date,venue,game,machine,invest,ret,memo:$('#memo').value.trim()};
   if(editId)data=data.map(x=>x.id===editId?r:x);else data.push(r);
   lastV=venue;store.set('gb_lastv',lastV);persist();post({op:'upsert',rows:[r]});
   sel=date;view=new Date(date+'T00:00:00');view.setDate(1);close('#addS');render();toast('保存しました');
@@ -237,10 +248,20 @@ $('#sync').onclick=async()=>{
 };
 $('#exp').onclick=()=>{
   const q=s=>`"${String(s).replace(/"/g,'""')}"`;
-  const csv='﻿日付,店舗,ジャンル,投資,回収,収支,メモ\n'+[...data].sort((a,b)=>a.date.localeCompare(b.date)).map(r=>[r.date,q(r.venue||''),r.game,r.invest,r.ret,net(r),q(r.memo||'')].join(',')).join('\n');
+  const csv='﻿日付,店舗,ジャンル,機種,投資,回収,収支,メモ\n'+[...data].sort((a,b)=>a.date.localeCompare(b.date)).map(r=>[r.date,q(r.venue||''),r.game,q(r.machine||''),r.invest,r.ret,net(r),q(r.memo||'')].join(',')).join('\n');
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='shushi.csv';a.click();
 };
 
+// ---- 機種検索 ----
+const MA=window.MACHINES||{pachinko:[],slot:[]};
+let custom=store.get('gb_machines',{pachinko:[],slot:[]});
+const nk=s=>s.normalize('NFKC').toLowerCase().replace(/[\u3041-\u3096]/g,c=>String.fromCharCode(c.charCodeAt(0)+96)).replace(/[\s・\-!?:~"'’]/g,'');
+function machUI(){const on=!game||game==='パチンコ'||game==='スロット';$('#machW').style.display=on?'':'none';$('#msug').innerHTML=''}
+function pool(){const k=game==='パチンコ'?['pachinko']:game==='スロット'?['slot']:['pachinko','slot'];const l=[];k.forEach(x=>{(custom[x]||[]).forEach(n=>l.push(n));(MA[x]||[]).forEach(n=>l.push(n))});return [...new Set(l)]}
+function suggest(){const q=nk($('#machine').value);if(!q){$('#msug').innerHTML='';return}
+  $('#msug').innerHTML=pool().filter(n=>nk(n).includes(q)).slice(0,8).map(n=>`<button data-m="${esc(n)}">${esc(n)}</button>`).join('')}
+$('#machine').oninput=suggest;
+$('#msug').onclick=e=>{const n=e.target.dataset.m;if(n){$('#machine').value=n;$('#msug').innerHTML=''}};
 // ---- パスコードロック ----
 let pin=store.get('gb_pin',null),lockMode='unlock',buf='',tmp='',fails=0,until=0;
 async function hashPin(p,salt){const t=salt+':'+p;
