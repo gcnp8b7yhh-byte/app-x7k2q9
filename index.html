@@ -102,7 +102,7 @@ input,select{width:100%;padding:12px;font-size:16px;border:1px solid var(--line)
   <label>実践店舗</label>
   <div class="vsel"><select id="venue"></select><button id="addV">＋ 新規</button></div>
   <label>ジャンル</label><div class="cats" id="gameBtns"></div>
-  <div id="machW"><label>機種（検索・手入力OK）</label><input id="machine" type="text" placeholder="例：獣王、エヴァ" autocomplete="off"><div class="msug" id="msug"></div></div>
+  <div id="machW"><label>機種（検索・手入力OK）</label><div class="vsel"><input id="machine" type="text" placeholder="例：獣王、エヴァ" autocomplete="off" style="flex:1;min-width:0"><button id="addM">＋ 新規</button></div><div class="msug" id="msug"></div></div>
   <div class="two">
     <div><label>投資（使った額）</label><input id="inv" class="num" type="number" inputmode="numeric" placeholder="0"></div>
     <div><label>回収（戻った額）</label><input id="ret" class="num" type="number" inputmode="numeric" placeholder="0"></div>
@@ -116,6 +116,8 @@ input,select{width:100%;padding:12px;font-size:16px;border:1px solid var(--line)
 <div class="sheet" id="setS"><div class="panel">
   <h2>登録済みの店舗</h2>
   <div id="vlist"></div>
+  <h2 style="margin-top:16px">自分で追加した機種</h2>
+  <div id="mlist"></div>
   <h2 style="margin-top:16px">スプレッドシート同期（任意）</h2>
   <label>Apps Script ウェブアプリURL</label>
   <input id="url" type="url" placeholder="https://script.google.com/macros/s/.../exec">
@@ -201,7 +203,10 @@ function addVenue(){
   const n=(prompt('店舗名を入力')||'').trim();if(!n)return null;
   if(!venues.includes(n)){venues.push(n);persist()}return n;
 }
-function renderSet(){
+function renderMach(){
+  const l=[];['pachinko','slot'].forEach(k=>(custom[k]||[]).forEach(n=>l.push([k,n])));
+  $('#mlist').innerHTML=l.length?l.map(([k,n])=>`<span class="chip">${esc(n)}<button data-rm="${k}|${esc(n)}">×</button></span>`).join(''):'<div class="empty">まだありません</div>'}
+function renderSet(){renderMach();
   $('#vlist').innerHTML=venues.length?venues.map(v=>`<span class="chip">${esc(v)}<button data-rv="${esc(v)}">×</button></span>`).join(''):'<div class="empty">まだありません（記録の追加画面で登録できます）</div>';
 }
 
@@ -262,6 +267,17 @@ function suggest(){const q=nk($('#machine').value);if(!q){$('#msug').innerHTML='
   $('#msug').innerHTML=pool().filter(n=>nk(n).includes(q)).slice(0,8).map(n=>`<button data-m="${esc(n)}">${esc(n)}</button>`).join('')}
 $('#machine').oninput=suggest;
 $('#msug').onclick=e=>{const n=e.target.dataset.m;if(n){$('#machine').value=n;$('#msug').innerHTML=''}};
+$('#addM').onclick=()=>{
+  const kind=game==='パチンコ'?'pachinko':game==='スロット'?'slot':null;
+  if(!kind)return toast('先にジャンル（パチンコ／スロット）を選んでください');
+  let n=$('#machine').value.trim();
+  if(!n)n=(prompt('追加する機種名を入力')||'').trim();
+  if(!n)return;
+  if([...(MA[kind]||[]),...(custom[kind]||[])].includes(n)){$('#machine').value=n;$('#msug').innerHTML='';return toast('すでに登録されています')}
+  custom[kind].push(n);store.set('gb_machines',custom);$('#machine').value=n;$('#msug').innerHTML='';toast('機種を追加しました');
+};
+$('#mlist').onclick=e=>{const v=e.target.dataset.rm;if(!v)return;const [k,...r]=v.split('|'),n=r.join('|');
+  if(confirm(`「${n}」を機種リストから外しますか？\n（過去の記録はそのまま残ります）`)){custom[k]=custom[k].filter(x=>x!==n);store.set('gb_machines',custom);renderMach()}};
 // ---- パスコードロック ----
 let pin=store.get('gb_pin',null),lockMode='unlock',buf='',tmp='',fails=0,until=0;
 async function hashPin(p,salt){const t=salt+':'+p;
