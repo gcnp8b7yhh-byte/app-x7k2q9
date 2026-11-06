@@ -72,6 +72,8 @@ input,select{width:100%;padding:12px;font-size:16px;border:1px solid var(--line)
 .pad button{width:74px;height:74px;border-radius:37px;border:1px solid var(--line);background:var(--card);color:var(--tx);font-size:26px}
 .pad button.x{visibility:hidden}
 .lock .link{width:auto;margin-top:14px}
+.seg{display:flex;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:3px;margin-bottom:12px}.seg button{flex:1;border:0;background:none;color:var(--sub);padding:8px;border-radius:9px;font-size:14px;font-weight:600}.seg button.on{background:var(--acc);color:#fff}
+.mrow{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}.mrow:last-child{border:0}.mrow .lb{width:38px;font-weight:600}.mrow .bar{flex:1;height:8px;background:var(--bg);border-radius:4px;position:relative}.mrow .bar i{position:absolute;top:0;height:8px;border-radius:4px}.mrow .am{width:96px;text-align:right;font-weight:700}.mrow small{display:block;color:var(--sub);font-weight:400;font-size:11px}
 .msug{display:flex;flex-direction:column;gap:4px;margin-top:6px}
 .msug button{text-align:left;border:1px solid var(--line);background:var(--bg);color:var(--tx);padding:10px 12px;border-radius:10px;font-size:14px}
 </style>
@@ -82,16 +84,18 @@ input,select{width:100%;padding:12px;font-size:16px;border:1px solid var(--line)
   <div class="mon"><button id="prev">‹</button><span id="mlabel"></span><button id="next">›</button><button class="ic" id="gear" style="margin-left:6px">⚙︎</button></div>
 </header>
 <main>
+  <div class="seg" id="seg"><button data-m="m" class="on">月</button><button data-m="y">年</button></div>
   <div class="card bal">
-    <small>今月の収支</small><b id="bal">¥0</b>
+    <small id="balL">今月の収支</small><b id="bal">¥0</b>
     <div class="three">
       <div><small>投資</small><b id="sinv">¥0</b></div>
       <div><small>回収</small><b id="sret">¥0</b></div>
       <div><small>勝率</small><b id="swin">-</b></div>
     </div>
   </div>
-  <div class="card"><div class="cal" id="cal"></div></div>
-  <div class="card"><h2 id="dayTitle">明細</h2><div id="list"></div></div>
+  <div class="card" id="yCard" style="display:none"><h2 id="yT">月別の収支</h2><div id="ymon"></div></div>
+  <div class="card mW"><div class="cal" id="cal"></div></div>
+  <div class="card mW"><h2 id="dayTitle">明細</h2><div id="list"></div></div>
   <div class="card"><h2>店舗別の収支</h2><div id="venues"></div></div>
   <div class="card"><h2>機種別の収支（通算）</h2><select id="machSel"></select><div id="machs" style="margin-top:12px"></div></div>
 </main>
@@ -138,7 +142,7 @@ const $=s=>document.querySelector(s);
 const GAMES=['パチンコ','スロット','競馬','競艇','競輪','オートレース','麻雀','その他'];
 const store={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
 let data=store.get('gb_data',[]),venues=store.get('gb_venues',[]),url=store.get('gb_url',''),lastV=store.get('gb_lastv','');
-let machSelV='',game='',editId=null,view=new Date();view.setDate(1);
+let mode='m',machSelV='',game='',editId=null,view=new Date();view.setDate(1);
 const pad=n=>String(n).padStart(2,'0');
 const ymd=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 let sel=ymd(new Date());
@@ -152,8 +156,19 @@ const persist=()=>{store.set('gb_data',data);store.set('gb_venues',venues)};
 function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',2200)}
 
 function render(){
-  const y=view.getFullYear(),m=view.getMonth(),ym=`${y}-${pad(m+1)}`;
-  $('#mlabel').textContent=`${y}年${m+1}月`;
+  const y=view.getFullYear(),m=view.getMonth(),ym=mode==='y'?`${y}`:`${y}-${pad(m+1)}`;
+  $('#mlabel').textContent=mode==='y'?`${y}年`:`${y}年${m+1}月`;
+  $('#balL').textContent=mode==='y'?`${y}年の収支`:'今月の収支';
+  document.querySelectorAll('.mW').forEach(e=>e.style.display=mode==='y'?'none':'');
+  $('#yCard').style.display=mode==='y'?'':'none';
+  document.querySelectorAll('#seg button').forEach(b=>b.classList.toggle('on',b.dataset.m===mode));
+  if(mode==='y'){const ms=Array.from({length:12},(_,i)=>({n:0,c:0,days:new Set()}));
+    data.filter(r=>r.date.startsWith(y+'-')).forEach(r=>{const o=ms[+r.date.slice(5,7)-1];o.n+=net(r);o.c++;o.days.add(r.date)});
+    const mx=Math.max(1,...ms.map(o=>Math.abs(o.n))),act=ms.filter(o=>o.c);
+    const best=act.length?Math.max(...act.map(o=>o.n)):0,worst=act.length?Math.min(...act.map(o=>o.n)):0;
+    $('#yT').innerHTML=`月別の収支${act.length?`<span style="float:right;font-weight:400">月平均 <span class="${cls(ms.reduce((s,o)=>s+o.n,0)/act.length)}">${sgn(ms.reduce((s,o)=>s+o.n,0)/act.length)}</span></span>`:''}`;
+    $('#ymon').innerHTML=ms.map((o,i)=>{const w=Math.abs(o.n)/mx*50;return `<div class="mrow" data-mm="${i}"><div class="lb">${i+1}月</div><div class="bar">${o.c?`<i style="${o.n>=0?`left:50%;background:var(--in)`:`right:50%;background:var(--out)`};width:${w}%"></i>`:''}</div><div class="am ${cls(o.n)}">${o.c?sgn(o.n):'-'}<small>${o.c?o.days.size+'日 '+o.c+'回':'記録なし'}</small></div></div>`}).join('')+(act.length?`<div class="empty" style="padding-bottom:0">最高 ${sgn(best)} ／ 最低 ${sgn(worst)}　（月をタップで月表示）</div>`:'');
+  }
   const rows=data.filter(r=>r.date.startsWith(ym));
   const inv=rows.reduce((s,r)=>s+r.invest,0),ret=rows.reduce((s,r)=>s+r.ret,0);
   const b=$('#bal');b.textContent=sgn(ret-inv);b.className=cls(ret-inv);
@@ -185,7 +200,7 @@ function render(){
   // venues
   const by={};data.forEach(r=>{const k=r.venue||'店舗未設定';const o=by[k]??={m:0,a:0,n:0};o.a+=net(r);o.n++;if(r.date.startsWith(ym))o.m+=net(r)});
   const ent=Object.entries(by).sort((a,b)=>b[1].a-a[1].a);
-  $('#venues').innerHTML=ent.length?ent.map(([k,o])=>`<div class="vr"><div>${esc(k)}<small>通算 ${o.n}回</small></div><b class="${cls(o.m)}">${sgn(o.m)}<small>今月</small><small class="${cls(o.a)}" style="margin-top:2px">通算 ${sgn(o.a)}</small></b></div>`).join(''):'<div class="empty">データなし</div>';
+  $('#venues').innerHTML=ent.length?ent.map(([k,o])=>`<div class="vr"><div>${esc(k)}<small>通算 ${o.n}回</small></div><b class="${cls(o.m)}">${sgn(o.m)}<small>${mode==='y'?'今年':'今月'}</small><small class="${cls(o.a)}" style="margin-top:2px">通算 ${sgn(o.a)}</small></b></div>`).join(''):'<div class="empty">データなし</div>';
 }
 
 function fillVenues(sv){
@@ -236,8 +251,10 @@ $('#list').onclick=e=>{
   if(id){if(confirm('この記録を削除しますか？')){data=data.filter(r=>r.id!==id);persist();post({op:'delete',id});render()}return}
   const row=e.target.closest('[data-edit]');if(row)openAdd(data.find(r=>r.id===row.dataset.edit));
 };
-$('#prev').onclick=()=>{view.setMonth(view.getMonth()-1);render()};
-$('#next').onclick=()=>{view.setMonth(view.getMonth()+1);render()};
+$('#prev').onclick=()=>{mode==='y'?view.setFullYear(view.getFullYear()-1):view.setMonth(view.getMonth()-1);render()};
+$('#next').onclick=()=>{mode==='y'?view.setFullYear(view.getFullYear()+1):view.setMonth(view.getMonth()+1);render()};
+$('#seg').onclick=e=>{const m=e.target.dataset.m;if(m){mode=m;render()}};
+$('#ymon').onclick=e=>{const r=e.target.closest('[data-mm]');if(!r)return;view.setMonth(+r.dataset.mm);mode='m';sel=ymd(new Date(view.getFullYear(),view.getMonth(),1));render()};
 $('#gear').onclick=()=>{$('#url').value=url;renderSet();$('#setS').classList.add('on')};
 $('#vlist').onclick=e=>{const v=e.target.dataset.rv;if(!v)return;
   if(confirm(`「${v}」を店舗リストから外しますか？\n（過去の記録はそのまま残ります）`)){venues=venues.filter(x=>x!==v);persist();renderSet()}};
