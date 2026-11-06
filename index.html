@@ -268,7 +268,7 @@ const nk=s=>s.normalize('NFKC').toLowerCase().replace(/[\u3041-\u3096]/g,c=>Stri
 function machUI(){const on=!game||game==='パチンコ'||game==='スロット';$('#machW').style.display=on?'':'none';$('#msug').innerHTML=''}
 function pool(){const k=game==='パチンコ'?['pachinko']:game==='スロット'?['slot']:['pachinko','slot'];const l=[];k.forEach(x=>{(custom[x]||[]).forEach(n=>l.push(n));(MA[x]||[]).forEach(n=>l.push(n))});return [...new Set(l)]}
 function suggest(){const q=nk($('#machine').value);if(!q){$('#msug').innerHTML='';return}
-  $('#msug').innerHTML=pool().filter(n=>nk(n).includes(q)).slice(0,8).map(n=>`<button data-m="${esc(n)}">${esc(n)}</button>`).join('')}
+  $('#msug').innerHTML=pool().filter(n=>nk(n).includes(q)).slice(0,12).map(n=>`<button data-m="${esc(n)}">${esc(n)}</button>`).join('')}
 $('#machine').oninput=suggest;
 $('#machSel').onchange=e=>{machSelV=e.target.value;render()};
 $('#msug').onclick=e=>{const n=e.target.dataset.m;if(n){$('#machine').value=n;$('#msug').innerHTML=''}};
