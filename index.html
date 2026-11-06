@@ -93,7 +93,7 @@ input,select{width:100%;padding:12px;font-size:16px;border:1px solid var(--line)
   <div class="card"><div class="cal" id="cal"></div></div>
   <div class="card"><h2 id="dayTitle">明細</h2><div id="list"></div></div>
   <div class="card"><h2>店舗別の収支</h2><div id="venues"></div></div>
-  <div class="card"><h2>機種別の収支（通算）</h2><div id="machs"></div></div>
+  <div class="card"><h2>機種別の収支（通算）</h2><select id="machSel"></select><div id="machs" style="margin-top:12px"></div></div>
 </main>
 <button class="fab" id="fab" aria-label="追加">＋</button>
 
@@ -138,7 +138,7 @@ const $=s=>document.querySelector(s);
 const GAMES=['パチンコ','スロット','競馬','競艇','競輪','オートレース','麻雀','その他'];
 const store={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
 let data=store.get('gb_data',[]),venues=store.get('gb_venues',[]),url=store.get('gb_url',''),lastV=store.get('gb_lastv','');
-let game='',editId=null,view=new Date();view.setDate(1);
+let machSelV='',game='',editId=null,view=new Date();view.setDate(1);
 const pad=n=>String(n).padStart(2,'0');
 const ymd=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 let sel=ymd(new Date());
@@ -175,9 +175,13 @@ function render(){
   const dn=dr.reduce((s,r)=>s+net(r),0);
   $('#dayTitle').innerHTML=`${+sel.slice(5,7)}月${+sel.slice(8)}日の明細${dr.length?` <span class="${cls(dn)}" style="float:right;font-size:15px">${sgn(dn)}</span>`:''}`;
   $('#list').innerHTML=dr.length?dr.map(r=>`<div class="row" data-edit="${r.id}"><div class="m"><div>${esc(r.venue||'店舗未設定')}</div><small>${esc([r.game,r.machine,r.memo].filter(Boolean).join(' ／ '))}</small></div><div class="a ${cls(net(r))}">${sgn(net(r))}<small>投${r.invest.toLocaleString()} 回${r.ret.toLocaleString()}</small></div><button data-del="${r.id}" aria-label="削除">🗑</button></div>`).join(''):'<div class="empty">この日の記録はありません</div>';
-  const bm={};data.forEach(r=>{if(!r.machine)return;const o=bm[r.machine]??={a:0,n:0};o.a+=net(r);o.n++});
-  const me=Object.entries(bm).sort((a,b)=>b[1].a-a[1].a);
-  $('#machs').innerHTML=me.length?me.map(([k,o])=>`<div class="vr"><div>${esc(k)}<small>${o.n}回</small></div><b class="${cls(o.a)}">${sgn(o.a)}</b></div>`).join(''):'<div class="empty">機種を入力した記録がここに集計されます</div>';
+  const bm={};data.forEach(r=>{if(!r.machine)return;const o=bm[r.machine]??={a:0,n:0,i:0,r:0,w:0};o.a+=net(r);o.n++;o.i+=r.invest;o.r+=r.ret;if(net(r)>0)o.w++});
+  const mk=Object.keys(bm).sort((a,b)=>bm[b].n-bm[a].n||a.localeCompare(b,'ja'));
+  if(!bm[machSelV])machSelV='';
+  $('#machSel').innerHTML='<option value="">機種を選んでください（'+mk.length+'機種）</option>'+mk.map(k=>`<option value="${esc(k)}">${esc(k)}（${bm[k].n}回）</option>`).join('');
+  $('#machSel').value=machSelV;
+  const o=bm[machSelV];
+  $('#machs').innerHTML=o?`<div class="three"><div><small>通算収支</small><b class="${cls(o.a)}">${sgn(o.a)}</b></div><div><small>回数</small><b>${o.n}回</b></div><div><small>勝率</small><b>${Math.round(o.w/o.n*100)}%</b></div></div><div class="vr" style="margin-top:8px"><div>投資合計</div><b>${yen(o.i)}</b></div><div class="vr"><div>回収合計</div><b>${yen(o.r)}</b></div>`:`<div class="empty">${mk.length?'上のリストから機種を選ぶと、通算の収支が見られます':'機種を入力した記録がここに集計されます'}</div>`;
   // venues
   const by={};data.forEach(r=>{const k=r.venue||'店舗未設定';const o=by[k]??={m:0,a:0,n:0};o.a+=net(r);o.n++;if(r.date.startsWith(ym))o.m+=net(r)});
   const ent=Object.entries(by).sort((a,b)=>b[1].a-a[1].a);
@@ -266,6 +270,7 @@ function pool(){const k=game==='パチンコ'?['pachinko']:game==='スロット'
 function suggest(){const q=nk($('#machine').value);if(!q){$('#msug').innerHTML='';return}
   $('#msug').innerHTML=pool().filter(n=>nk(n).includes(q)).slice(0,8).map(n=>`<button data-m="${esc(n)}">${esc(n)}</button>`).join('')}
 $('#machine').oninput=suggest;
+$('#machSel').onchange=e=>{machSelV=e.target.value;render()};
 $('#msug').onclick=e=>{const n=e.target.dataset.m;if(n){$('#machine').value=n;$('#msug').innerHTML=''}};
 $('#addM').onclick=()=>{
   const kind=game==='パチンコ'?'pachinko':game==='スロット'?'slot':null;
