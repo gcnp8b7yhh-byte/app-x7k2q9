@@ -75,6 +75,8 @@ input,select{width:100%;padding:12px;font-size:16px;border:1px solid var(--line)
 @keyframes sl{from{transform:translateX(40px);opacity:.3}to{transform:none;opacity:1}}@keyframes sr{from{transform:translateX(-40px);opacity:.3}to{transform:none;opacity:1}}
 .seg{display:flex;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:3px;margin-bottom:12px}.seg button{flex:1;border:0;background:none;color:var(--sub);padding:8px;border-radius:9px;font-size:14px;font-weight:600}.seg button.on{background:var(--acc);color:#fff}
 .mrow{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}.mrow:last-child{border:0}.mrow .lb{width:38px;font-weight:600}.mrow .bar{flex:1;height:8px;background:var(--bg);border-radius:4px;position:relative}.mrow .bar i{position:absolute;top:0;height:8px;border-radius:4px}.mrow .am{width:96px;text-align:right;font-weight:700}.mrow small{display:block;color:var(--sub);font-weight:400;font-size:11px}
+.pie{width:150px;height:150px;border-radius:50%;margin:4px auto 12px;position:relative}.pie:after{content:"";position:absolute;inset:34px;border-radius:50%;background:var(--card)}
+.dot{display:inline-block;width:10px;height:10px;border-radius:5px;margin-right:6px}
 .msug{display:flex;flex-direction:column;gap:4px;margin-top:6px}
 .msug button{text-align:left;border:1px solid var(--line);background:var(--bg);color:var(--tx);padding:10px 12px;border-radius:10px;font-size:14px}
 </style>
@@ -97,6 +99,7 @@ input,select{width:100%;padding:12px;font-size:16px;border:1px solid var(--line)
   <div class="card" id="yCard" style="display:none"><h2 id="yT">月別の収支</h2><div id="ymon"></div></div>
   <div class="card mW"><div class="cal" id="cal"></div></div>
   <div class="card mW"><h2 id="dayTitle">明細</h2><div id="list"></div></div>
+  <div class="card"><h2 id="gT">ジャンル別</h2><div class="seg" id="pseg" style="margin-bottom:8px"><button data-p="n" class="on">回数</button><button data-p="i">投資額</button></div><div class="pie" id="pie"></div><div id="gen"></div></div>
   <div class="card"><h2>店舗別の収支</h2><div id="venues"></div></div>
   <div class="card"><h2>機種別の収支（通算）</h2><select id="machSel"></select><div id="machs" style="margin-top:12px"></div></div>
 </main>
@@ -143,7 +146,7 @@ const $=s=>document.querySelector(s);
 const GAMES=['パチンコ','スロット','競馬','競艇','競輪','オートレース','麻雀','その他'];
 const store={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
 let data=store.get('gb_data',[]),venues=store.get('gb_venues',[]),url=store.get('gb_url',''),lastV=store.get('gb_lastv','');
-let mode='m',machSelV='',game='',editId=null,view=new Date();view.setDate(1);
+let pieBy='n',mode='m',machSelV='',game='',editId=null,view=new Date();view.setDate(1);
 const pad=n=>String(n).padStart(2,'0');
 const ymd=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 let sel=ymd(new Date());
@@ -198,6 +201,16 @@ function render(){
   $('#machSel').value=machSelV;
   const o=bm[machSelV];
   $('#machs').innerHTML=o?`<div class="three"><div><small>通算収支</small><b class="${cls(o.a)}">${sgn(o.a)}</b></div><div><small>回数</small><b>${o.n}回</b></div><div><small>勝率</small><b>${Math.round(o.w/o.n*100)}%</b></div></div><div class="vr" style="margin-top:8px"><div>投資合計</div><b>${yen(o.i)}</b></div><div class="vr"><div>回収合計</div><b>${yen(o.r)}</b></div>`:`<div class="empty">${mk.length?'上のリストから機種を選ぶと、通算の収支が見られます':'機種を入力した記録がここに集計されます'}</div>`;
+  // genre
+  const GC=['#10946e','#3b82f6','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#84cc16','#94a3b8'];
+  const pr=data.filter(r=>r.date.startsWith(ym)),gb={};
+  pr.forEach(r=>{const k=r.game||'未設定';const o=gb[k]??={a:0,n:0,i:0};o.a+=net(r);o.n++;o.i+=r.invest});
+  const gk=Object.keys(gb).sort((a,b)=>gb[b][pieBy]-gb[a][pieBy]),tot=gk.reduce((t,k)=>t+gb[k][pieBy],0);
+  $('#gT').textContent=`ジャンル別（${mode==='y'?y+'年':y+'年'+(m+1)+'月'}）`;
+  document.querySelectorAll('#pseg button').forEach(b=>b.classList.toggle('on',b.dataset.p===pieBy));
+  let ac=0;const seg=gk.map((k,i)=>{const a0=ac;ac+=tot?gb[k][pieBy]/tot*100:0;return `${GC[i%GC.length]} ${a0}% ${ac}%`});
+  $('#pie').style.display=tot?'':'none';$('#pie').style.background=tot?`conic-gradient(${seg.join(',')})`:'';
+  $('#gen').innerHTML=gk.length?gk.map((k,i)=>{const o=gb[k];return `<div class="vr"><div><span class="dot" style="background:${GC[i%GC.length]}"></span>${esc(k)}<small>${o.n}回 ／ ${tot?Math.round(o[pieBy]/tot*100):0}%${pieBy==='i'?' ／ 投資'+yen(o.i):''}</small></div><b class="${cls(o.a)}">${sgn(o.a)}</b></div>`}).join(''):'<div class="empty">この期間の記録はありません</div>';
   // venues
   const by={};data.forEach(r=>{const k=r.venue||'店舗未設定';const o=by[k]??={m:0,a:0,n:0};o.a+=net(r);o.n++;if(r.date.startsWith(ym))o.m+=net(r)});
   const ent=Object.entries(by).sort((a,b)=>b[1].a-a[1].a);
@@ -261,6 +274,7 @@ document.addEventListener('touchend',e=>{if(!tOk)return;tOk=false;const t=e.chan
   const to=dx<0?'y':'m';if(to===mode)return;mode=to;render();
   const m=document.querySelector('main');m.style.animation='none';void m.offsetWidth;m.style.animation=(dx<0?'sl':'sr')+' .25s ease';
 },{passive:true});
+$('#pseg').onclick=e=>{const p=e.target.dataset.p;if(p){pieBy=p;render()}};
 $('#seg').onclick=e=>{const m=e.target.dataset.m;if(m){mode=m;render()}};
 $('#ymon').onclick=e=>{const r=e.target.closest('[data-mm]');if(!r)return;view.setMonth(+r.dataset.mm);mode='m';sel=ymd(new Date(view.getFullYear(),view.getMonth(),1));render()};
 $('#gear').onclick=()=>{$('#url').value=url;renderSet();$('#setS').classList.add('on')};
