@@ -87,7 +87,7 @@ input,select{width:100%;padding:12px;font-size:16px;border:1px solid var(--line)
   <div class="mon"><button id="prev">‹</button><span id="mlabel"></span><button id="next">›</button><button class="ic" id="gear" style="margin-left:6px">⚙︎</button></div>
 </header>
 <main>
-  <div class="seg" id="seg"><button data-m="m" class="on">月</button><button data-m="y">年</button></div>
+  <div class="seg" id="seg"><button data-m="m" class="on">月</button><button data-m="y">年</button><button data-m="g">ジャンル</button></div>
   <div class="card bal">
     <small id="balL">今月の収支</small><b id="bal">¥0</b>
     <div class="three">
@@ -99,7 +99,7 @@ input,select{width:100%;padding:12px;font-size:16px;border:1px solid var(--line)
   <div class="card" id="yCard" style="display:none"><h2 id="yT">月別の収支</h2><div id="ymon"></div></div>
   <div class="card mW"><div class="cal" id="cal"></div></div>
   <div class="card mW"><h2 id="dayTitle">明細</h2><div id="list"></div></div>
-  <div class="card"><h2 id="gT">ジャンル別</h2><div class="seg" id="pseg" style="margin-bottom:8px"><button data-p="n" class="on">回数</button><button data-p="i">投資額</button></div><div class="pie" id="pie"></div><div id="gen"></div></div>
+  <div class="card" id="gCard" style="display:none"><div class="seg" id="gseg" style="margin-bottom:8px"><button data-g="m" class="on">月ごと</button><button data-g="y">年ごと</button></div><h2 id="gT">ジャンル別</h2><div class="seg" id="pseg" style="margin-bottom:8px"><button data-p="n" class="on">回数</button><button data-p="i">投資額</button></div><div class="pie" id="pie"></div><div id="gen"></div></div>
   <div class="card"><h2>店舗別の収支</h2><div id="venues"></div></div>
   <div class="card"><h2>機種別の収支（通算）</h2><select id="machSel"></select><div id="machs" style="margin-top:12px"></div></div>
 </main>
@@ -146,7 +146,7 @@ const $=s=>document.querySelector(s);
 const GAMES=['パチンコ','スロット','競馬','競艇','競輪','オートレース','麻雀','その他'];
 const store={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
 let data=store.get('gb_data',[]),venues=store.get('gb_venues',[]),url=store.get('gb_url',''),lastV=store.get('gb_lastv','');
-let pieBy='n',mode='m',machSelV='',game='',editId=null,view=new Date();view.setDate(1);
+let gp='m',pieBy='n',mode='m',machSelV='',game='',editId=null,view=new Date();view.setDate(1);
 const pad=n=>String(n).padStart(2,'0');
 const ymd=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 let sel=ymd(new Date());
@@ -160,10 +160,12 @@ const persist=()=>{store.set('gb_data',data);store.set('gb_venues',venues)};
 function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',2200)}
 
 function render(){
-  const y=view.getFullYear(),m=view.getMonth(),ym=mode==='y'?`${y}`:`${y}-${pad(m+1)}`;
-  $('#mlabel').textContent=mode==='y'?`${y}年`:`${y}年${m+1}月`;
-  $('#balL').textContent=mode==='y'?`${y}年の収支`:'今月の収支';
-  document.querySelectorAll('.mW').forEach(e=>e.style.display=mode==='y'?'none':'');
+  const y=view.getFullYear(),m=view.getMonth(),yr=mode==='y'||(mode==='g'&&gp==='y'),ym=yr?`${y}`:`${y}-${pad(m+1)}`;
+  $('#mlabel').textContent=yr?`${y}年`:`${y}年${m+1}月`;
+  $('#balL').textContent=yr?`${y}年の収支`:'今月の収支';
+  document.querySelectorAll('.mW').forEach(e=>e.style.display=mode==='m'?'':'none');
+  $('#gCard').style.display=mode==='g'?'':'none';
+  document.querySelectorAll('#gseg button').forEach(b=>b.classList.toggle('on',b.dataset.g===gp));
   $('#yCard').style.display=mode==='y'?'':'none';
   document.querySelectorAll('#seg button').forEach(b=>b.classList.toggle('on',b.dataset.m===mode));
   if(mode==='y'){const ms=Array.from({length:12},(_,i)=>({n:0,c:0,days:new Set()}));
@@ -206,7 +208,7 @@ function render(){
   const pr=data.filter(r=>r.date.startsWith(ym)),gb={};
   pr.forEach(r=>{const k=r.game||'未設定';const o=gb[k]??={a:0,n:0,i:0};o.a+=net(r);o.n++;o.i+=r.invest});
   const gk=Object.keys(gb).sort((a,b)=>gb[b][pieBy]-gb[a][pieBy]),tot=gk.reduce((t,k)=>t+gb[k][pieBy],0);
-  $('#gT').textContent=`ジャンル別（${mode==='y'?y+'年':y+'年'+(m+1)+'月'}）`;
+  $('#gT').textContent=`ジャンル別（${yr?y+'年':y+'年'+(m+1)+'月'}）`;
   document.querySelectorAll('#pseg button').forEach(b=>b.classList.toggle('on',b.dataset.p===pieBy));
   let ac=0;const seg=gk.map((k,i)=>{const a0=ac;ac+=tot?gb[k][pieBy]/tot*100:0;return `${GC[i%GC.length]} ${a0}% ${ac}%`});
   $('#pie').style.display=tot?'':'none';$('#pie').style.background=tot?`conic-gradient(${seg.join(',')})`:'';
@@ -214,7 +216,7 @@ function render(){
   // venues
   const by={};data.forEach(r=>{const k=r.venue||'店舗未設定';const o=by[k]??={m:0,a:0,n:0};o.a+=net(r);o.n++;if(r.date.startsWith(ym))o.m+=net(r)});
   const ent=Object.entries(by).sort((a,b)=>b[1].a-a[1].a);
-  $('#venues').innerHTML=ent.length?ent.map(([k,o])=>`<div class="vr"><div>${esc(k)}<small>通算 ${o.n}回</small></div><b class="${cls(o.m)}">${sgn(o.m)}<small>${mode==='y'?'今年':'今月'}</small><small class="${cls(o.a)}" style="margin-top:2px">通算 ${sgn(o.a)}</small></b></div>`).join(''):'<div class="empty">データなし</div>';
+  $('#venues').innerHTML=ent.length?ent.map(([k,o])=>`<div class="vr"><div>${esc(k)}<small>通算 ${o.n}回</small></div><b class="${cls(o.m)}">${sgn(o.m)}<small>${yr?'今年':'今月'}</small><small class="${cls(o.a)}" style="margin-top:2px">通算 ${sgn(o.a)}</small></b></div>`).join(''):'<div class="empty">データなし</div>';
 }
 
 function fillVenues(sv){
@@ -265,16 +267,17 @@ $('#list').onclick=e=>{
   if(id){if(confirm('この記録を削除しますか？')){data=data.filter(r=>r.id!==id);persist();post({op:'delete',id});render()}return}
   const row=e.target.closest('[data-edit]');if(row)openAdd(data.find(r=>r.id===row.dataset.edit));
 };
-$('#prev').onclick=()=>{mode==='y'?view.setFullYear(view.getFullYear()-1):view.setMonth(view.getMonth()-1);render()};
-$('#next').onclick=()=>{mode==='y'?view.setFullYear(view.getFullYear()+1):view.setMonth(view.getMonth()+1);render()};
+$('#prev').onclick=()=>{(mode==='y'||(mode==='g'&&gp==='y'))?view.setFullYear(view.getFullYear()-1):view.setMonth(view.getMonth()-1);render()};
+$('#next').onclick=()=>{(mode==='y'||(mode==='g'&&gp==='y'))?view.setFullYear(view.getFullYear()+1):view.setMonth(view.getMonth()+1);render()};
 let tx=0,ty=0,tOk=false;
 document.addEventListener('touchstart',e=>{const t=e.touches[0];tx=t.clientX;ty=t.clientY;tOk=e.touches.length===1&&!document.querySelector('.sheet.on,.lock.on')&&!e.target.closest('input,select,textarea')},{passive:true});
 document.addEventListener('touchend',e=>{if(!tOk)return;tOk=false;const t=e.changedTouches[0],dx=t.clientX-tx,dy=t.clientY-ty;
   if(Math.abs(dx)<60||Math.abs(dx)<Math.abs(dy)*1.5)return;
-  const to=dx<0?'y':'m';if(to===mode)return;mode=to;render();
+  const O=['m','y','g'],to=O[Math.max(0,Math.min(2,O.indexOf(mode)+(dx<0?1:-1)))];if(to===mode)return;mode=to;render();
   const m=document.querySelector('main');m.style.animation='none';void m.offsetWidth;m.style.animation=(dx<0?'sl':'sr')+' .25s ease';
 },{passive:true});
 $('#pseg').onclick=e=>{const p=e.target.dataset.p;if(p){pieBy=p;render()}};
+$('#gseg').onclick=e=>{const g=e.target.dataset.g;if(g){gp=g;render()}};
 $('#seg').onclick=e=>{const m=e.target.dataset.m;if(m){mode=m;render()}};
 $('#ymon').onclick=e=>{const r=e.target.closest('[data-mm]');if(!r)return;view.setMonth(+r.dataset.mm);mode='m';sel=ymd(new Date(view.getFullYear(),view.getMonth(),1));render()};
 $('#gear').onclick=()=>{$('#url').value=url;renderSet();$('#setS').classList.add('on')};
